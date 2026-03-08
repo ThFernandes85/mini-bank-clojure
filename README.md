@@ -34,4 +34,4 @@ mini-bank-clj
 Example of the API running locally:
 
 ![API Running](docs/api-running.png)
->>>>>>> c31d323 (docs: add API running screenshot)
+
