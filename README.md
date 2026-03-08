@@ -17,4 +17,21 @@ Este projeto foi desenvolvido com foco em aprendizado de **programação funcion
 
 ---
 
+<<<<<<< HEAD
 # 📦 Estrutura do Projeto
+=======
+```text
+mini-bank-clj
+└── src
+    └── mini_bank_clj
+        ├── core.clj
+        ├── db.clj
+        ├── service.clj
+        └── routes.clj
+
+## 📷 API Running
+
+Example of the API running locally:
+
+![API Running](docs/api-running.png)
+>>>>>>> c31d323 (docs: add API running screenshot)
