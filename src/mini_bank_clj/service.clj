@@ -1,42 +1,38 @@
 (ns mini-bank-clj.service
-  (:require [mini-bank-clj.db :refer [accounts transactions transaction-seq]])
+  (:require
+   [mini-bank-clj.db :as db])
   (:import [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]))
 
 (defn list-accounts []
-  (vals @accounts))
+  (db/get-accounts))
 
 (defn get-account [id]
-  (get @accounts id))
+  (db/get-account id))
 
 (defn list-transactions []
-  @transactions)
+  (db/get-transactions))
 
 (defn get-transaction [id]
-  (first
-   (filter #(= (:id %) id) @transactions)))
+  (db/get-transaction id))
 
 (defn total-balance []
-  (reduce + (map :balance (vals @accounts))))
+  (reduce + 0 (map :balance (db/get-accounts))))
 
 (defn current-timestamp []
   (.format
    (LocalDateTime/now)
    (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss")))
 
-(defn next-transaction-id []
-  (swap! transaction-seq inc))
-
 (defn add-transaction [transaction]
-  (let [transaction-with-data
-        (assoc transaction
-               :id (next-transaction-id)
-               :timestamp (current-timestamp))]
-    (swap! transactions conj transaction-with-data)))
+  (db/create-transaction
+   (assoc transaction
+          :id (db/next-transaction-id)
+          :timestamp (current-timestamp))))
 
 (defn create-account [id name balance]
   (cond
-    (get @accounts id)
+    (db/get-account id)
     {:error "Conta já existe"}
 
     (neg? balance)
@@ -44,36 +40,37 @@
 
     :else
     (do
-      (swap! accounts assoc id {:id id :name name :balance balance})
+      (db/create-account id name balance)
       (add-transaction
        {:type "create-account"
-        :account-id id
+        :account_id id
         :name name
-        :initial-balance balance})
+        :amount balance})
       {:message "Conta criada com sucesso"
-       :account (get @accounts id)})))
+       :account (db/get-account id)})))
 
 (defn deposit [id amount]
-  (cond
-    (nil? (get @accounts id))
-    {:error "Conta não encontrada"}
+  (let [account (db/get-account id)]
+    (cond
+      (nil? account)
+      {:error "Conta não encontrada"}
 
-    (<= amount 0)
-    {:error "O valor do depósito deve ser maior que zero"}
+      (<= amount 0)
+      {:error "O valor do depósito deve ser maior que zero"}
 
-    :else
-    (do
-      (swap! accounts update-in [id :balance] + amount)
-      (add-transaction
-       {:type "deposit"
-        :account-id id
-        :amount amount})
-      {:message "Depósito realizado com sucesso"
-       :account (get @accounts id)})))
+      :else
+      (let [new-balance (+ (:balance account) amount)]
+        (db/update-balance id new-balance)
+        (add-transaction
+         {:type "deposit"
+          :account_id id
+          :amount amount})
+        {:message "Depósito realizado com sucesso"
+         :account (db/get-account id)}))))
 
 (defn transfer [from-id to-id amount]
-  (let [from-account (get @accounts from-id)
-        to-account   (get @accounts to-id)]
+  (let [from-account (db/get-account from-id)
+        to-account   (db/get-account to-id)]
     (cond
       (nil? from-account)
       {:error "Conta de origem não encontrada"}
@@ -91,27 +88,28 @@
       {:error "Saldo insuficiente"}
 
       :else
-      (do
-        (swap! accounts update-in [from-id :balance] - amount)
-        (swap! accounts update-in [to-id :balance] + amount)
+      (let [new-from-balance (- (:balance from-account) amount)
+            new-to-balance   (+ (:balance to-account) amount)]
+        (db/update-balance from-id new-from-balance)
+        (db/update-balance to-id new-to-balance)
         (add-transaction
          {:type "transfer"
-          :from-account-id from-id
-          :to-account-id to-id
+          :from_account_id from-id
+          :to_account_id to-id
           :amount amount})
         {:message "Transferência realizada com sucesso"
-         :from-account (get @accounts from-id)
-         :to-account (get @accounts to-id)}))))
+         :from-account (db/get-account from-id)
+         :to-account (db/get-account to-id)}))))
 
 (defn delete-account [id]
-  (if-let [account (get @accounts id)]
+  (if-let [account (db/get-account id)]
     (do
-      (swap! accounts dissoc id)
+      (db/delete-account id)
       (add-transaction
        {:type "delete-account"
-        :account-id id
+        :account_id id
         :name (:name account)
-        :final-balance (:balance account)})
+        :amount (:balance account)})
       {:message "Conta removida com sucesso"
        :deleted-account account})
     {:error "Conta não encontrada"}))

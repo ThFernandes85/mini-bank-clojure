@@ -6,6 +6,8 @@
                  [ring/ring-core "1.12.1"]
                  [ring/ring-jetty-adapter "1.12.1"]
                  [ring/ring-json "0.5.1"]
-                 [compojure "1.7.1"]]
+                 [compojure "1.7.1"]
+                 [org.clojure/java.jdbc "0.7.12"]
+                 [org.xerial/sqlite-jdbc "3.46.0.0"]]
 
   :main mini-bank-clj.core)

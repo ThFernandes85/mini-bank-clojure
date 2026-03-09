@@ -1,12 +1,38 @@
-(ns mini-bank-clj.db)
+(ns mini-bank-clj.db
+  (:require [clojure.java.jdbc :as jdbc]
+            [mini-bank-clj.db.connection :refer [db-spec]]))
 
-(def accounts
-  (atom
-   {1 {:id 1 :name "Thiago" :balance 1000.0}
-    2 {:id 2 :name "Maria"  :balance 500.0}}))
+(defn get-accounts []
+  (jdbc/query db-spec ["SELECT * FROM accounts ORDER BY id"]))
 
-(def transactions
-  (atom []))
+(defn get-account [id]
+  (first
+   (jdbc/query db-spec ["SELECT * FROM accounts WHERE id = ?" id])))
 
-(def transaction-seq
-  (atom 0))
+(defn create-account [id name balance]
+  (jdbc/insert! db-spec :accounts
+                {:id id
+                 :name name
+                 :balance balance}))
+
+(defn update-balance [id new-balance]
+  (jdbc/update! db-spec :accounts
+                {:balance new-balance}
+                ["id = ?" id]))
+
+(defn delete-account [id]
+  (jdbc/delete! db-spec :accounts ["id = ?" id]))
+
+(defn get-transactions []
+  (jdbc/query db-spec ["SELECT * FROM transactions ORDER BY id"]))
+
+(defn get-transaction [id]
+  (first
+   (jdbc/query db-spec ["SELECT * FROM transactions WHERE id = ?" id])))
+
+(defn next-transaction-id []
+  (let [result (jdbc/query db-spec ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM transactions"])]
+    (:next_id (first result))))
+
+(defn create-transaction [transaction]
+  (jdbc/insert! db-spec :transactions transaction))
