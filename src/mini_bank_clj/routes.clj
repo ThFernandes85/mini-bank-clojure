@@ -1,12 +1,16 @@
 (ns mini-bank-clj.routes
-  (:require [compojure.core :refer [defroutes GET POST DELETE]]
+  (:require [compojure.core :refer [defroutes GET POST DELETE routes]]
             [compojure.route :as route]
-            [mini-bank-clj.service :as service]))
+            [mini-bank-clj.service :as service]
+            [mini-bank-clj.auth :refer [wrap-jwt-auth]]
+            [mini-bank-clj.utils.response :as response]))
 
-(defroutes app-routes
+(defroutes public-routes
   (GET "/" []
-    {:status 200
-     :body {:message "Mini Bank API rodando com Clojure"}})
+    (response/ok {:message "Mini Bank API rodando com Clojure"}))
+
+  (GET "/health" []
+    (response/ok {:status "ok"}))
 
   (GET "/docs" []
     {:status 200
@@ -26,11 +30,17 @@
           <h1>Mini Bank API</h1>
           <p>Documentação simples da API.</p>
 
-          <h2>Rotas</h2>
-
+          <h2>Rotas Públicas</h2>
           <div class='route'><code>GET /</code> - Mensagem inicial</div>
+          <div class='route'><code>GET /health</code> - Health check da API</div>
+          <div class='route'><code>GET /docs</code> - Documentação</div>
+          <div class='route'><code>POST /register</code> - Criar usuário</div>
+          <div class='route'><code>POST /login</code> - Login e token JWT</div>
+
+          <h2>Rotas Protegidas</h2>
           <div class='route'><code>GET /accounts</code> - Listar contas</div>
           <div class='route'><code>GET /accounts/:id</code> - Buscar conta por ID</div>
+          <div class='route'><code>GET /accounts/:id/statement</code> - Extrato da conta</div>
           <div class='route'><code>POST /accounts</code> - Criar conta</div>
           <div class='route'><code>POST /deposit</code> - Realizar depósito</div>
           <div class='route'><code>POST /transfer</code> - Realizar transferência</div>
@@ -41,51 +51,81 @@
         </body>
       </html>"})
 
+  (POST "/register" request
+    (let [{:keys [name email password]} (:body request)
+          result (service/register-user name email password)]
+      (if (:error result)
+        (response/bad-request (:error result))
+        (response/created result))))
+
+  (POST "/login" request
+    (let [{:keys [email password]} (:body request)
+          result (service/login-user email password)]
+      (if (:error result)
+        (response/unauthorized (:error result))
+        (response/ok result)))))
+
+(defroutes protected-routes
   (GET "/accounts" []
-    {:status 200
-     :body (service/list-accounts)})
+    (response/ok (service/list-accounts)))
 
   (GET "/accounts/:id" [id]
     (let [account (service/get-account (Integer/parseInt id))]
       (if account
-        {:status 200 :body account}
-        {:status 404 :body {:error "Conta não encontrada"}})))
+        (response/ok account)
+        (response/not-found "Conta não encontrada"))))
+
+  (GET "/accounts/:id/statement" [id]
+    (let [result (service/get-account-statement (Integer/parseInt id))]
+      (if (:error result)
+        (response/not-found (:error result))
+        (response/ok result))))
 
   (GET "/transactions" []
-    {:status 200
-     :body (service/list-transactions)})
+    (response/ok (service/list-transactions)))
 
   (GET "/transactions/:id" [id]
     (let [transaction (service/get-transaction (Integer/parseInt id))]
       (if transaction
-        {:status 200 :body transaction}
-        {:status 404 :body {:error "Transação não encontrada"}})))
+        (response/ok transaction)
+        (response/not-found "Transação não encontrada"))))
 
   (GET "/bank/total-balance" []
-    {:status 200
-     :body {:total-balance (service/total-balance)}})
+    (response/ok {:total-balance (service/total-balance)}))
 
   (POST "/accounts" request
-    (let [{:keys [id name balance]} (:body request)]
-      {:status 201
-       :body (service/create-account id name balance)}))
+    (let [{:keys [name balance]} (:body request)
+          result (service/create-account name balance)]
+      (if (:error result)
+        (response/bad-request (:error result))
+        (response/created result))))
 
   (POST "/deposit" request
-    (let [{:keys [id amount]} (:body request)]
-      {:status 200
-       :body (service/deposit id amount)}))
+    (let [{:keys [id amount]} (:body request)
+          result (service/deposit id amount)]
+      (if (:error result)
+        (response/bad-request (:error result))
+        (response/ok result))))
 
   (POST "/transfer" request
-    (let [{:keys [from-id to-id amount]} (:body request)]
-      {:status 200
-       :body (service/transfer from-id to-id amount)}))
+    (let [{:keys [from-id to-id amount]} (:body request)
+          result (service/transfer from-id to-id amount)]
+      (if (:error result)
+        (response/bad-request (:error result))
+        (response/ok result))))
 
   (DELETE "/accounts/:id" [id]
     (let [result (service/delete-account (Integer/parseInt id))]
       (if (:error result)
-        {:status 404 :body result}
-        {:status 200 :body result})))
+        (response/not-found (:error result))
+        (response/ok result)))))
 
-  (route/not-found
-   {:status 404
-    :body {:error "Rota não encontrada"}}))
+(def app-routes
+  (routes
+   public-routes
+   (wrap-jwt-auth protected-routes)
+   (route/not-found
+    {:status 404
+     :body {:success false
+            :error "Rota não encontrada"}})))
+

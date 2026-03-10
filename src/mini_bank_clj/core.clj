@@ -17,6 +17,7 @@
   (schema/init-db)
   (let [port (get-port)]
     (println (str "Servidor rodando em http://0.0.0.0:" port))
-    (run-jetty app {:host "0.0.0.0"
-                    :port port
-                    :join? false})))
+    (run-jetty app
+               {:host "0.0.0.0"
+                :port port
+                :join? false})))

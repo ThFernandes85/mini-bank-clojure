@@ -1,8 +1,11 @@
 (ns mini-bank-clj.service
-  (:require
-   [mini-bank-clj.db :as db])
+  (:require [mini-bank-clj.db :as db]
+            [buddy.hashers :as hashers]
+            [buddy.sign.jwt :as jwt])
   (:import [java.time LocalDateTime]
            [java.time.format DateTimeFormatter]))
+
+(def jwt-secret "mini-bank-secret-key")
 
 (defn list-accounts []
   (db/get-accounts))
@@ -30,16 +33,53 @@
           :id (db/next-transaction-id)
           :timestamp (current-timestamp))))
 
-(defn create-account [id name balance]
+(defn register-user [name email password]
   (cond
-    (db/get-account id)
-    {:error "Conta já existe"}
+    (db/get-user-by-email email)
+    {:error "Usuário já existe"}
+
+    (or (nil? name) (= "" name))
+    {:error "Nome é obrigatório"}
+
+    (or (nil? email) (= "" email))
+    {:error "Email é obrigatório"}
+
+    (or (nil? password) (= "" password))
+    {:error "Senha é obrigatória"}
+
+    :else
+    (let [hashed-password (hashers/derive password)]
+      (db/create-user name email hashed-password)
+      {:message "Usuário criado com sucesso"})))
+
+(defn login-user [email password]
+  (let [user (db/get-user-by-email email)]
+    (cond
+      (nil? user)
+      {:error "Usuário não encontrado"}
+
+      (not (hashers/check password (:password user)))
+      {:error "Senha inválida"}
+
+      :else
+      {:message "Login realizado com sucesso"
+       :token (jwt/sign {:user-id (:id user)
+                         :email (:email user)}
+                        jwt-secret)})))
+
+(defn create-account [name balance]
+  (cond
+    (or (nil? name) (= "" name))
+    {:error "Nome é obrigatório"}
+
+    (nil? balance)
+    {:error "Saldo inicial é obrigatório"}
 
     (neg? balance)
     {:error "Saldo inicial não pode ser negativo"}
 
     :else
-    (do
+    (let [id (db/next-account-id)]
       (db/create-account id name balance)
       (add-transaction
        {:type "create-account"
@@ -100,6 +140,13 @@
         {:message "Transferência realizada com sucesso"
          :from-account (db/get-account from-id)
          :to-account (db/get-account to-id)}))))
+
+(defn get-account-statement [id]
+  (let [account (db/get-account id)]
+    (if (nil? account)
+      {:error "Conta não encontrada"}
+      {:account account
+       :transactions (db/get-account-transactions id)})))
 
 (defn delete-account [id]
   (if-let [account (db/get-account id)]

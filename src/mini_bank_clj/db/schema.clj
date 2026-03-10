@@ -4,7 +4,7 @@
 
 (defn create-accounts-table []
   (jdbc/db-do-commands
-   db-spec
+   (db-spec)
    "CREATE TABLE IF NOT EXISTS accounts (
       id INTEGER PRIMARY KEY,
       name TEXT,
@@ -13,7 +13,7 @@
 
 (defn create-transactions-table []
   (jdbc/db-do-commands
-   db-spec
+   (db-spec)
    "CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY,
       type TEXT,
@@ -23,8 +23,19 @@
       amount REAL,
       name TEXT,
       timestamp TEXT
-   )"))
+    )"))
+
+(defn create-users-table []
+  (jdbc/db-do-commands
+   (db-spec)
+   "CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY,
+      name TEXT,
+      email TEXT UNIQUE,
+      password TEXT
+    )"))
 
 (defn init-db []
   (create-accounts-table)
-  (create-transactions-table))
+  (create-transactions-table)
+  (create-users-table))

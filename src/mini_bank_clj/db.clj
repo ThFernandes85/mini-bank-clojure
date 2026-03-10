@@ -3,36 +3,68 @@
             [mini-bank-clj.db.connection :refer [db-spec]]))
 
 (defn get-accounts []
-  (jdbc/query db-spec ["SELECT * FROM accounts ORDER BY id"]))
+  (jdbc/query (db-spec) ["SELECT * FROM accounts ORDER BY id"]))
 
 (defn get-account [id]
   (first
-   (jdbc/query db-spec ["SELECT * FROM accounts WHERE id = ?" id])))
+   (jdbc/query (db-spec) ["SELECT * FROM accounts WHERE id = ?" id])))
+
+(defn next-account-id []
+  (let [result (jdbc/query (db-spec)
+                           ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM accounts"])]
+    (:next_id (first result))))
 
 (defn create-account [id name balance]
-  (jdbc/insert! db-spec :accounts
+  (jdbc/insert! (db-spec) :accounts
                 {:id id
                  :name name
                  :balance balance}))
 
 (defn update-balance [id new-balance]
-  (jdbc/update! db-spec :accounts
+  (jdbc/update! (db-spec) :accounts
                 {:balance new-balance}
                 ["id = ?" id]))
 
 (defn delete-account [id]
-  (jdbc/delete! db-spec :accounts ["id = ?" id]))
+  (jdbc/delete! (db-spec) :accounts ["id = ?" id]))
 
 (defn get-transactions []
-  (jdbc/query db-spec ["SELECT * FROM transactions ORDER BY id"]))
+  (jdbc/query (db-spec) ["SELECT * FROM transactions ORDER BY id"]))
 
 (defn get-transaction [id]
   (first
-   (jdbc/query db-spec ["SELECT * FROM transactions WHERE id = ?" id])))
+   (jdbc/query (db-spec) ["SELECT * FROM transactions WHERE id = ?" id])))
+
+(defn get-account-transactions [account-id]
+  (jdbc/query
+   (db-spec)
+   ["SELECT * FROM transactions
+     WHERE account_id = ?
+        OR from_account_id = ?
+        OR to_account_id = ?
+     ORDER BY id"
+    account-id account-id account-id]))
 
 (defn next-transaction-id []
-  (let [result (jdbc/query db-spec ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM transactions"])]
+  (let [result (jdbc/query (db-spec)
+                           ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM transactions"])]
     (:next_id (first result))))
 
 (defn create-transaction [transaction]
-  (jdbc/insert! db-spec :transactions transaction))
+  (jdbc/insert! (db-spec) :transactions transaction))
+
+(defn get-user-by-email [email]
+  (first
+   (jdbc/query (db-spec) ["SELECT * FROM users WHERE email = ?" email])))
+
+(defn next-user-id []
+  (let [result (jdbc/query (db-spec)
+                           ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM users"])]
+    (:next_id (first result))))
+
+(defn create-user [name email password]
+  (jdbc/insert! (db-spec) :users
+                {:id (next-user-id)
+                 :name name
+                 :email email
+                 :password password}))

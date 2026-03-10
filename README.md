@@ -1,8 +1,23 @@
-# 💜 Mini Bank API - Clojure
+![Clojure](https://img.shields.io/badge/Clojure-Functional-green)
+![API](https://img.shields.io/badge/API-REST-blue)
+![Status](https://img.shields.io/badge/status-online-success)
+![Deploy](https://img.shields.io/badge/deploy-render-purple)
 
-API REST desenvolvida em **Clojure** simulando operações bancárias básicas como criação de contas, depósitos, transferências e controle de saldo.
+# 💜 Mini Bank API - Clojure 💳
 
-Este projeto foi desenvolvido com foco em aprendizado de **programação funcional**, arquitetura de APIs e boas práticas de backend.
+API REST desenvolvida em **Clojure** que simula operações bancárias básicas de um banco digital.
+
+O sistema permite:
+
+- criação de usuários
+- autenticação com JWT
+- criação de contas
+- depósitos
+- transferências
+- histórico de transações
+- extrato bancário
+
+Este projeto foi desenvolvido com foco em aprendizado de **programação funcional**, **arquitetura de APIs REST** e **boas práticas de backend**.
 
 ---
 
@@ -12,26 +27,24 @@ Este projeto foi desenvolvido com foco em aprendizado de **programação funcion
 - Ring
 - Compojure
 - Leiningen
-- JSON Middleware
 - Jetty Server
+- JSON Middleware
+- JWT Authentication
+- SQLite
+- Clojure JDBC
 
 ---
 
-<<<<<<< HEAD
 # 📦 Estrutura do Projeto
-=======
+
 ```text
 mini-bank-clj
 └── src
     └── mini_bank_clj
+        ├── auth.clj
         ├── core.clj
         ├── db.clj
+        ├── routes.clj
         ├── service.clj
-        └── routes.clj
-
-## 📷 API Running
-
-Example of the API running locally:
-
-![API Running](docs/api-running.png)
-
+        └── utils
+            └── response.clj
