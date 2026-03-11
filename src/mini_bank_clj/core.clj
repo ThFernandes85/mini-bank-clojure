@@ -1,26 +1,31 @@
 (ns mini-bank-clj.core
   (:require
-   [clojure.string :as str]
    [ring.adapter.jetty :refer [run-jetty]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [mini-bank-clj.routes :refer [app-routes]]
    [mini-bank-clj.db.schema :as schema])
   (:gen-class))
 
+(def allowed-origins
+  #{"http://localhost:5173"
+    "https://mini-bank-clojure.vercel.app"
+    "https://mini-bank-clojure-377lq7ci9-thfernandes85s-projects.vercel.app"
+    "https://mini-bank-clojure-git-master-thfernandes85s-projects.vercel.app"})
+
 (defn allowed-origin? [origin]
-  (or (= origin "http://localhost:5173")
-      (and origin (str/ends-with? origin ".vercel.app"))))
+  (contains? allowed-origins origin))
 
 (defn cors-headers [origin]
   {"Access-Control-Allow-Origin" origin
-   "Access-Control-Allow-Headers" "Content-Type, Authorization"
+   "Access-Control-Allow-Headers" "Content-Type, Authorization, Accept, Origin, X-Requested-With"
    "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"
+   "Access-Control-Max-Age" "86400"
    "Vary" "Origin"})
 
 (defn wrap-cors [handler]
   (fn [request]
     (let [origin (get-in request [:headers "origin"])]
-      (if (allowed-origin? origin)
+      (if (and origin (allowed-origin? origin))
         (if (= :options (:request-method request))
           {:status 200
            :headers (cors-headers origin)
