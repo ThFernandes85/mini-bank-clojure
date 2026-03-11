@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://mini-bank-clojure-1.onrender.com",
+  baseURL: "https://mini-bank-clojure-api.onrender.com",
 });
 
 api.interceptors.request.use((config) => {
