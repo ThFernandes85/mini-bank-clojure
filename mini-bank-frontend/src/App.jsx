@@ -11,11 +11,16 @@ import {
 } from './services/accountService'
 
 function App() {
+  const [mode, setMode] = useState('login')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [loginSuccess, setLoginSuccess] = useState(false)
+
   const [accounts, setAccounts] = useState([])
   const [loadingAccounts, setLoadingAccounts] = useState(false)
 
@@ -32,7 +37,11 @@ function App() {
   const [transferValue, setTransferValue] = useState('')
   const [transferTarget, setTransferTarget] = useState('')
 
+  const [users, setUsers] = useState([])
+
   const token = localStorage.getItem('token')
+  const savedUser = localStorage.getItem('user')
+  const user = savedUser ? JSON.parse(savedUser) : null
 
   const totalBalance = accounts.reduce(
     (total, acc) => total + Number(acc.balance || 0),
@@ -92,6 +101,22 @@ function App() {
       }
     }
 
+    if (normalizedType.includes('create-account')) {
+      return {
+        badge: 'bg-blue-100 text-blue-700',
+        value: 'text-blue-700',
+        label: 'Criação de conta',
+      }
+    }
+
+    if (normalizedType.includes('delete-account')) {
+      return {
+        badge: 'bg-orange-100 text-orange-700',
+        value: 'text-orange-700',
+        label: 'Exclusão de conta',
+      }
+    }
+
     return {
       badge: 'bg-gray-100 text-gray-700',
       value: 'text-gray-800',
@@ -104,7 +129,7 @@ function App() {
       setLoadingAccounts(true)
 
       const data = await getAccounts()
-      const accountList = data?.data || []
+      const accountList = data?.data || data || []
 
       setAccounts(accountList)
     } catch (error) {
@@ -116,6 +141,18 @@ function App() {
       )
     } finally {
       setLoadingAccounts(false)
+    }
+  }
+
+  const fetchUsers = async () => {
+    if (user?.role !== 'admin') return
+
+    try {
+      const response = await api.get('/users')
+      const userList = response?.data?.data || response?.data || []
+      setUsers(userList)
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error)
     }
   }
 
@@ -187,7 +224,7 @@ function App() {
       setStatementLoading(true)
 
       const data = await getAccountStatement(accountId)
-      const statement = data?.data || null
+      const statement = data?.data || data || null
 
       setStatementData(statement)
     } catch (error) {
@@ -207,6 +244,7 @@ function App() {
   useEffect(() => {
     if (token) {
       fetchAccounts()
+      fetchUsers()
     }
   }, [token])
 
@@ -228,13 +266,24 @@ function App() {
         password,
       })
 
-      const receivedToken = response?.data?.data?.token
+      const payload = response?.data?.data || response?.data || {}
+      const receivedToken = payload?.token
+      const receivedUser = payload?.user
 
       if (receivedToken) {
         localStorage.setItem('token', receivedToken)
+
+        if (receivedUser) {
+          localStorage.setItem('user', JSON.stringify(receivedUser))
+        }
+
         setLoginSuccess(true)
         setMessage('Login realizado com sucesso!')
         await fetchAccounts()
+
+        if (receivedUser?.role === 'admin') {
+          await fetchUsers()
+        }
       } else {
         setMessage('Login realizado, mas token não foi encontrado.')
       }
@@ -252,9 +301,51 @@ function App() {
     }
   }
 
+  const handleRegister = async (e) => {
+    e.preventDefault()
+    setMessage('')
+    setLoginSuccess(false)
+
+    if (!name || !email || !password) {
+      setMessage('Preencha nome, e-mail e senha.')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      const response = await api.post('/register', {
+        name,
+        email,
+        password,
+      })
+
+      const payload = response?.data?.data || response?.data || {}
+
+      setMessage(payload?.message || response?.data?.message || 'Conta criada com sucesso!')
+      setMode('login')
+      setName('')
+      setEmail('')
+      setPassword('')
+    } catch (error) {
+      console.error('Erro ao criar conta:', error)
+
+      const apiError =
+        error?.response?.data?.error ||
+        error?.response?.data?.body?.error ||
+        'Erro ao criar conta.'
+
+      setMessage(apiError)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
     setAccounts([])
+    setUsers([])
     setLoginSuccess(false)
     setMessage('')
     setStatementOpen(false)
@@ -303,6 +394,18 @@ function App() {
               Visualize suas contas e acompanhe seus saldos.
             </p>
 
+            <div className="mt-4 space-y-1">
+              <p className="text-sm text-purple-100">
+                Usuário: <span className="font-semibold">{user?.name || 'Usuário'}</span>
+              </p>
+              <p className="text-sm text-purple-100">
+                Perfil: <span className="font-semibold uppercase">{user?.role || 'user'}</span>
+              </p>
+              <p className="text-sm text-purple-100">
+                E-mail: <span className="font-semibold">{user?.email || '-'}</span>
+              </p>
+            </div>
+
             <div className="mt-6 border-t border-purple-400 pt-6">
               <p className="text-sm text-purple-200">
                 Saldo total em todas as contas
@@ -343,6 +446,41 @@ function App() {
               </p>
             </div>
           </div>
+
+          {user?.role === 'admin' && (
+            <div className="rounded-3xl bg-white p-6 shadow-lg border border-purple-100 mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Usuários cadastrados
+                </h3>
+                <button
+                  onClick={fetchUsers}
+                  className="rounded-2xl bg-purple-600 text-white px-4 py-2 font-semibold hover:bg-purple-700 transition"
+                >
+                  Atualizar
+                </button>
+              </div>
+
+              {users.length === 0 ? (
+                <p className="text-gray-600">Nenhum usuário encontrado.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {users.map((bankUser) => (
+                    <div
+                      key={bankUser.id}
+                      className="rounded-2xl border border-purple-100 bg-purple-50 p-4"
+                    >
+                      <p className="font-bold text-gray-900">{bankUser.name}</p>
+                      <p className="text-sm text-gray-600 mt-1">{bankUser.email}</p>
+                      <p className="text-xs mt-2 inline-flex rounded-full bg-white px-3 py-1 font-semibold text-purple-700 border border-purple-200">
+                        {bankUser.role}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {loadingAccounts ? (
             <div className="rounded-3xl bg-white p-8 shadow-lg border border-purple-100">
@@ -576,45 +714,130 @@ function App() {
             Mini Bank
           </h1>
           <p className="text-gray-500 mt-2">
-            Entre para acessar seu banco digital simulado
+            {mode === 'login'
+              ? 'Entre para acessar seu banco digital simulado'
+              : 'Crie sua conta para entrar no Mini Bank'}
           </p>
         </div>
 
-        <form className="space-y-4" onSubmit={handleLogin}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              E-mail
-            </label>
-            <input
-              type="email"
-              placeholder="thiago@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Senha
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('login')
+              setMessage('')
+            }}
+            className={`rounded-2xl py-3 font-semibold transition ${
+              mode === 'login'
+                ? 'bg-purple-600 text-white'
+                : 'bg-purple-50 text-purple-700 border border-purple-100'
+            }`}
+          >
+            Entrar
+          </button>
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-2xl bg-purple-600 text-white py-3 font-semibold hover:bg-purple-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+            type="button"
+            onClick={() => {
+              setMode('register')
+              setMessage('')
+            }}
+            className={`rounded-2xl py-3 font-semibold transition ${
+              mode === 'register'
+                ? 'bg-purple-600 text-white'
+                : 'bg-purple-50 text-purple-700 border border-purple-100'
+            }`}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            Criar conta
           </button>
-        </form>
+        </div>
+
+        {mode === 'login' ? (
+          <form className="space-y-4" onSubmit={handleLogin}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                E-mail
+              </label>
+              <input
+                type="email"
+                placeholder="thiago@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Senha
+              </label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-2xl bg-purple-600 text-white py-3 font-semibold hover:bg-purple-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        ) : (
+          <form className="space-y-4" onSubmit={handleRegister}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nome
+              </label>
+              <input
+                type="text"
+                placeholder="Seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                E-mail
+              </label>
+              <input
+                type="email"
+                placeholder="seuemail@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Senha
+              </label>
+              <input
+                type="password"
+                placeholder="Crie uma senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-2xl bg-purple-600 text-white py-3 font-semibold hover:bg-purple-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Criando conta...' : 'Criar conta'}
+            </button>
+          </form>
+        )}
 
         {message && (
           <div
