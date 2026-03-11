@@ -136,7 +136,7 @@ function App() {
       setDepositValue('')
       setSelectedAccount(null)
 
-      fetchAccounts()
+      await fetchAccounts()
     } catch (error) {
       console.error('Erro ao realizar depósito:', error)
       alert(
@@ -170,7 +170,7 @@ function App() {
       setTransferValue('')
       setSelectedAccount(null)
 
-      fetchAccounts()
+      await fetchAccounts()
     } catch (error) {
       console.error('Erro ao realizar transferência:', error)
       alert(
@@ -228,8 +228,7 @@ function App() {
         password,
       })
 
-      const receivedToken =
-        response?.data?.data?.token || response?.data?.token
+      const receivedToken = response?.data?.data?.token
 
       if (receivedToken) {
         localStorage.setItem('token', receivedToken)
@@ -240,6 +239,8 @@ function App() {
         setMessage('Login realizado, mas token não foi encontrado.')
       }
     } catch (error) {
+      console.error('Erro ao fazer login:', error)
+
       const apiError =
         error?.response?.data?.error ||
         error?.response?.data?.body?.error ||
