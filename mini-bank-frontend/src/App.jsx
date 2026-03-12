@@ -39,9 +39,11 @@ function App() {
 
   const [users, setUsers] = useState([])
 
-  const token = localStorage.getItem('token')
-  const savedUser = localStorage.getItem('user')
-  const user = savedUser ? JSON.parse(savedUser) : null
+  const [token, setToken] = useState(localStorage.getItem('token') || '')
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user')
+    return savedUser ? JSON.parse(savedUser) : null
+  })
 
   const totalBalance = accounts.reduce(
     (total, acc) => total + Number(acc.balance || 0),
@@ -244,9 +246,14 @@ function App() {
   useEffect(() => {
     if (token) {
       fetchAccounts()
-      fetchUsers()
     }
   }, [token])
+
+  useEffect(() => {
+    if (token && user?.role === 'admin') {
+      fetchUsers()
+    }
+  }, [token, user])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -272,13 +279,19 @@ function App() {
 
       if (receivedToken) {
         localStorage.setItem('token', receivedToken)
+        setToken(receivedToken)
 
         if (receivedUser) {
           localStorage.setItem('user', JSON.stringify(receivedUser))
+          setUser(receivedUser)
+        } else {
+          localStorage.removeItem('user')
+          setUser(null)
         }
 
         setLoginSuccess(true)
         setMessage('Login realizado com sucesso!')
+
         await fetchAccounts()
 
         if (receivedUser?.role === 'admin') {
@@ -322,7 +335,11 @@ function App() {
 
       const payload = response?.data?.data || response?.data || {}
 
-      setMessage(payload?.message || response?.data?.message || 'Conta criada com sucesso!')
+      setMessage(
+        payload?.message ||
+          response?.data?.message ||
+          'Conta criada com sucesso!'
+      )
       setMode('login')
       setName('')
       setEmail('')
@@ -344,6 +361,8 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    setToken('')
+    setUser(null)
     setAccounts([])
     setUsers([])
     setLoginSuccess(false)
@@ -356,7 +375,6 @@ function App() {
     setTransferValue('')
     setTransferTarget('')
     setSelectedAccount(null)
-    window.location.reload()
   }
 
   const closeStatement = () => {
@@ -396,13 +414,18 @@ function App() {
 
             <div className="mt-4 space-y-1">
               <p className="text-sm text-purple-100">
-                Usuário: <span className="font-semibold">{user?.name || 'Usuário'}</span>
+                Usuário:{' '}
+                <span className="font-semibold">{user?.name || 'Usuário'}</span>
               </p>
               <p className="text-sm text-purple-100">
-                Perfil: <span className="font-semibold uppercase">{user?.role || 'user'}</span>
+                Perfil:{' '}
+                <span className="font-semibold uppercase">
+                  {user?.role || 'user'}
+                </span>
               </p>
               <p className="text-sm text-purple-100">
-                E-mail: <span className="font-semibold">{user?.email || '-'}</span>
+                E-mail:{' '}
+                <span className="font-semibold">{user?.email || '-'}</span>
               </p>
             </div>
 
@@ -470,8 +493,12 @@ function App() {
                       key={bankUser.id}
                       className="rounded-2xl border border-purple-100 bg-purple-50 p-4"
                     >
-                      <p className="font-bold text-gray-900">{bankUser.name}</p>
-                      <p className="text-sm text-gray-600 mt-1">{bankUser.email}</p>
+                      <p className="font-bold text-gray-900">
+                        {bankUser.name}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {bankUser.email}
+                      </p>
                       <p className="text-xs mt-2 inline-flex rounded-full bg-white px-3 py-1 font-semibold text-purple-700 border border-purple-200">
                         {bankUser.role}
                       </p>
