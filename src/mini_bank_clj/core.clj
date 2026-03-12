@@ -6,6 +6,7 @@
    [mini-bank-clj.db.schema :as schema])
   (:gen-class))
 
+<<<<<<< HEAD
 (def allowed-origin "http://localhost:5173")
 
 (defn wrap-cors [handler]
@@ -21,6 +22,35 @@
                 {"Access-Control-Allow-Origin" allowed-origin
                  "Access-Control-Allow-Headers" "Content-Type, Authorization"
                  "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"})))))
+=======
+(def allowed-origins
+  #{"http://localhost:5173"
+    "https://mini-bank-clojure.vercel.app"
+    "https://mini-bank-clojure-377lq7ci9-thfernandes85s-projects.vercel.app"
+    "https://mini-bank-clojure-git-master-thfernandes85s-projects.vercel.app"})
+
+(defn allowed-origin? [origin]
+  (contains? allowed-origins origin))
+
+(defn cors-headers [origin]
+  {"Access-Control-Allow-Origin" origin
+   "Access-Control-Allow-Headers" "Content-Type, Authorization, Accept, Origin, X-Requested-With"
+   "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"
+   "Access-Control-Max-Age" "86400"
+   "Vary" "Origin"})
+
+(defn wrap-cors [handler]
+  (fn [request]
+    (let [origin (get-in request [:headers "origin"])]
+      (if (and origin (allowed-origin? origin))
+        (if (= :options (:request-method request))
+          {:status 200
+           :headers (cors-headers origin)
+           :body ""}
+          (let [response (handler request)]
+            (update response :headers merge (cors-headers origin))))
+        (handler request)))))
+>>>>>>> f6d6f319aadc0c88b982c25fc71f093541ad3b72
 
 (def app
   (-> app-routes

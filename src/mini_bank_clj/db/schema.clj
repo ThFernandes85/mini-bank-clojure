@@ -35,7 +35,21 @@
       password TEXT
     )"))
 
+(defn seed-default-user []
+  (let [existing-user (first
+                       (jdbc/query
+                        (db-spec)
+                        ["SELECT * FROM users WHERE email = ?" "thiago@email.com"]))]
+    (when (nil? existing-user)
+      (jdbc/insert! (db-spec)
+                    :users
+                    {:name "Thiago"
+                     :email "thiago@email.com"
+                     :password "123456"}))))
+
 (defn init-db []
   (create-accounts-table)
   (create-transactions-table)
-  (create-users-table))
+  (create-users-table)
+  (seed-default-user))
+
