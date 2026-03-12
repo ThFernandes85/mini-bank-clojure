@@ -1,6 +1,6 @@
 (defproject mini-bank-clj "0.1.0-SNAPSHOT"
   :description "Mini banco em Clojure inspirado em APIs funcionais"
-  :url "http://example.com"
+  :url "https://mini-bank-clojure.vercel.app"
 
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/java.jdbc "0.7.12"]
