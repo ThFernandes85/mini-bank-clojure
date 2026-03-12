@@ -3,6 +3,7 @@
   :url "http://example.com"
 
   :dependencies [[org.clojure/clojure "1.11.1"]
+                 [org.clojure/java.jdbc "0.7.12"]
                  [ring/ring-core "1.9.6"]
                  [ring/ring-jetty-adapter "1.9.6"]
                  [ring/ring-json "0.5.1"]

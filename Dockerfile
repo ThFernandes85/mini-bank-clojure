@@ -2,10 +2,11 @@ FROM clojure:temurin-17-lein
 
 WORKDIR /app
 
-COPY . .
-
+COPY project.clj ./
 RUN lein deps
+
+COPY . .
 
 EXPOSE 10000
 
-CMD ["lein", "run"]
+CMD ["sh", "-c", "lein run"]

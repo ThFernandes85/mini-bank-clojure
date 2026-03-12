@@ -16,7 +16,11 @@
        :access-control-allow-methods [:get :post :put :delete :options]
        :access-control-allow-headers ["Content-Type" "Authorization"])))
 
+(defn get-port []
+  (Integer/parseInt (or (System/getenv "PORT") "3000")))
+
 (defn -main []
   (schema/init-db)
-  (println "Mini Bank API rodando na porta 3000")
-  (run-jetty app {:port 3000 :join? false}))
+  (let [port (get-port)]
+    (println (str "Mini Bank API rodando na porta " port))
+    (run-jetty app {:port port :join? false})))
