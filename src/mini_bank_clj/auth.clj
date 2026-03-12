@@ -1,20 +1,24 @@
 (ns mini-bank-clj.auth
   (:require [buddy.sign.jwt :as jwt]))
 
-(def jwt-secret "mini-bank-secret-key")
+(def secret "mini-bank-secret")
 
-(defn unauthorized-response []
-  {:status 401
-   :body {:error "Token ausente ou inválido"}})
+(defn generate-token [user-data]
+  (jwt/sign user-data secret))
+
+(defn verify-token [token]
+  (try
+    (jwt/unsign token secret)
+    (catch Exception _
+      nil)))
 
 (defn wrap-jwt-auth [handler]
   (fn [request]
-    (let [auth-header (get-in request [:headers "authorization"])]
-      (if (and auth-header (.startsWith auth-header "Bearer "))
-        (let [token (.substring auth-header 7)]
-          (try
-            (let [claims (jwt/unsign token jwt-secret)]
-              (handler (assoc request :jwt-claims claims)))
-            (catch Exception _
-              (unauthorized-response))))
-        (unauthorized-response)))))
+    (let [auth-header (get-in request [:headers "authorization"])
+          token (when auth-header
+                  (second (re-find #"Bearer (.+)" auth-header)))
+          decoded (when token (verify-token token))]
+      (if decoded
+        (handler (assoc request :identity decoded))
+        {:status 401
+         :body {:error "Token inválido ou ausente"}}))))

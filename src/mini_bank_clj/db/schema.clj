@@ -32,24 +32,46 @@
       id INTEGER PRIMARY KEY,
       name TEXT,
       email TEXT UNIQUE,
-      password TEXT
+      password TEXT,
+      role TEXT DEFAULT 'USER'
     )"))
 
+(defn get-user-columns []
+  (jdbc/query (db-spec) ["PRAGMA table_info(users)"]))
+
+(defn ensure-role-column []
+  (let [columns (map :name (get-user-columns))]
+    (when-not (some #{"role"} columns)
+      (jdbc/db-do-commands
+       (db-spec)
+       "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'USER'"))))
+
 (defn seed-default-user []
-  (let [existing-user (first
-                       (jdbc/query
-                        (db-spec)
-                        ["SELECT * FROM users WHERE email = ?" "thiago@email.com"]))]
-    (when (nil? existing-user)
-      (jdbc/insert! (db-spec)
-                    :users
-                    {:name "Thiago"
-                     :email "thiago@email.com"
-                     :password "123456"}))))
+  (let [existing-user
+        (first
+         (jdbc/query
+          (db-spec)
+          ["SELECT * FROM users WHERE email = ?" "thiago@email.com"]))]
+
+    (if (nil? existing-user)
+      (jdbc/insert!
+       (db-spec)
+       :users
+       {:name "Thiago"
+        :email "thiago@email.com"
+        :password "123456"
+        :role "ADMIN"})
+      (jdbc/update!
+       (db-spec)
+       :users
+       {:role "ADMIN"}
+       ["email = ?" "thiago@email.com"]))))
 
 (defn init-db []
   (create-accounts-table)
   (create-transactions-table)
   (create-users-table)
-  (seed-default-user))
-
+  (ensure-role-column)
+  (seed-default-user)
+  (println "✅ Banco inicializado com sucesso")
+  (println "👑 thiago@email.com definido como ADMIN"))
