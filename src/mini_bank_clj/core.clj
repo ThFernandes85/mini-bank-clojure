@@ -2,25 +2,45 @@
   (:require
    [ring.adapter.jetty :refer [run-jetty]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
-   [ring.middleware.cors :refer [wrap-cors]]
    [mini-bank-clj.routes :refer [app-routes]]
    [mini-bank-clj.db.schema :as schema])
   (:gen-class))
 
+(def allowed-origins
+  #{"http://localhost:5173"
+    "https://mini-bank-clojure.vercel.app"
+    "https://mini-bank-clojure-377lq7ci9-thfernandes85s-projects.vercel.app"
+    "https://mini-bank-clojure-git-master-thfernandes85s-projects.vercel.app"})
+
+(defn allowed-origin? [origin]
+  (contains? allowed-origins origin))
+
+(defn cors-headers [origin]
+  {"Access-Control-Allow-Origin" origin
+   "Access-Control-Allow-Headers" "Content-Type, Authorization, Accept, Origin, X-Requested-With"
+   "Access-Control-Allow-Methods" "GET, POST, PUT, DELETE, OPTIONS"
+   "Access-Control-Max-Age" "86400"
+   "Vary" "Origin"})
+
+(defn wrap-cors [handler]
+  (fn [request]
+    (let [origin (get-in request [:headers "origin"])]
+      (if (and origin (allowed-origin? origin))
+        (if (= :options (:request-method request))
+          {:status 200
+           :headers (cors-headers origin)
+           :body ""}
+          (let [response (handler request)]
+            (update response :headers merge (cors-headers origin))))
+        (handler request)))))
+
 (def app
   (-> app-routes
+      wrap-cors
       (wrap-json-body {:keywords? true})
-      wrap-json-response
-      (wrap-cors
-       :access-control-allow-origin [#".*"]
-       :access-control-allow-methods [:get :post :put :delete :options]
-       :access-control-allow-headers ["Content-Type" "Authorization"])))
-
-(defn get-port []
-  (Integer/parseInt (or (System/getenv "PORT") "3000")))
+      wrap-json-response))
 
 (defn -main []
   (schema/init-db)
-  (let [port (get-port)]
-    (println (str "Mini Bank API rodando na porta " port))
-    (run-jetty app {:port port :join? false})))
+  (println "Mini Bank API rodando na porta 3000")
+  (run-jetty app {:port 3000 :join? false}))

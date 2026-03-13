@@ -1,6 +1,7 @@
 (ns mini-bank-clj.db.schema
   (:require [clojure.java.jdbc :as jdbc]
-            [mini-bank-clj.db.connection :refer [db-spec]]))
+            [mini-bank-clj.db.connection :refer [db-spec]]
+            [buddy.hashers :as hashers]))
 
 (defn create-accounts-table []
   (jdbc/db-do-commands
@@ -33,45 +34,43 @@
       name TEXT,
       email TEXT UNIQUE,
       password TEXT,
-      role TEXT DEFAULT 'USER'
+      role TEXT DEFAULT 'user'
     )"))
 
-(defn get-user-columns []
-  (jdbc/query (db-spec) ["PRAGMA table_info(users)"]))
+(defn role-column-exists? []
+  (let [columns (jdbc/query (db-spec) ["PRAGMA table_info(users)"])]
+    (some #(= (:name %) "role") columns)))
 
 (defn ensure-role-column []
-  (let [columns (map :name (get-user-columns))]
-    (when-not (some #{"role"} columns)
-      (jdbc/db-do-commands
-       (db-spec)
-       "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'USER'"))))
+  (when-not (role-column-exists?)
+    (jdbc/db-do-commands
+     (db-spec)
+     "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")))
 
 (defn seed-default-user []
-  (let [existing-user
-        (first
-         (jdbc/query
-          (db-spec)
-          ["SELECT * FROM users WHERE email = ?" "thiago@email.com"]))]
-
+  (let [email "thiago@email.com"
+        hashed-password (hashers/derive "123456")
+        existing-user (first
+                       (jdbc/query
+                        (db-spec)
+                        ["SELECT * FROM users WHERE email = ?" email]))]
     (if (nil? existing-user)
-      (jdbc/insert!
-       (db-spec)
-       :users
-       {:name "Thiago"
-        :email "thiago@email.com"
-        :password "123456"
-        :role "ADMIN"})
-      (jdbc/update!
-       (db-spec)
-       :users
-       {:role "ADMIN"}
-       ["email = ?" "thiago@email.com"]))))
+      (jdbc/insert! (db-spec)
+                    :users
+                    {:name "Thiago"
+                     :email email
+                     :password hashed-password
+                     :role "admin"})
+      (jdbc/update! (db-spec)
+                    :users
+                    {:name "Thiago"
+                     :password hashed-password
+                     :role "admin"}
+                    ["email = ?" email]))))
 
 (defn init-db []
   (create-accounts-table)
   (create-transactions-table)
   (create-users-table)
   (ensure-role-column)
-  (seed-default-user)
-  (println "✅ Banco inicializado com sucesso")
-  (println "👑 thiago@email.com definido como ADMIN"))
+  (seed-default-user))

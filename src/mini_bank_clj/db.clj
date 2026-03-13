@@ -10,18 +10,21 @@
    (jdbc/query (db-spec) ["SELECT * FROM accounts WHERE id = ?" id])))
 
 (defn next-account-id []
-  (let [result (jdbc/query (db-spec)
-                           ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM accounts"])]
+  (let [result (jdbc/query
+                (db-spec)
+                ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM accounts"])]
     (:next_id (first result))))
 
 (defn create-account [id name balance]
-  (jdbc/insert! (db-spec) :accounts
+  (jdbc/insert! (db-spec)
+                :accounts
                 {:id id
                  :name name
                  :balance balance}))
 
 (defn update-balance [id new-balance]
-  (jdbc/update! (db-spec) :accounts
+  (jdbc/update! (db-spec)
+                :accounts
                 {:balance new-balance}
                 ["id = ?" id]))
 
@@ -46,8 +49,9 @@
     account-id account-id account-id]))
 
 (defn next-transaction-id []
-  (let [result (jdbc/query (db-spec)
-                           ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM transactions"])]
+  (let [result (jdbc/query
+                (db-spec)
+                ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM transactions"])]
     (:next_id (first result))))
 
 (defn create-transaction [transaction]
@@ -57,14 +61,26 @@
   (first
    (jdbc/query (db-spec) ["SELECT * FROM users WHERE email = ?" email])))
 
+(defn get-users []
+  (jdbc/query
+   (db-spec)
+   ["SELECT id, name, email, role FROM users ORDER BY id"]))
+
 (defn next-user-id []
-  (let [result (jdbc/query (db-spec)
-                           ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM users"])]
+  (let [result (jdbc/query
+                (db-spec)
+                ["SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM users"])]
     (:next_id (first result))))
 
-(defn create-user [name email password]
-  (jdbc/insert! (db-spec) :users
-                {:id (next-user-id)
-                 :name name
-                 :email email
-                 :password password}))
+(defn create-user [name email password role]
+  (let [user-id (next-user-id)]
+    (jdbc/insert! (db-spec)
+                  :users
+                  {:id user-id
+                   :name name
+                   :email email
+                   :password password
+                   :role role})
+    (first
+     (jdbc/query (db-spec)
+                 ["SELECT * FROM users WHERE id = ?" user-id]))))
