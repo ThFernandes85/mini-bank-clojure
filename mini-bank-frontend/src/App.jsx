@@ -5,6 +5,7 @@ import AccountCard from './components/AccountCard'
 
 import {
   getAccounts,
+  createNewAccount,
   depositIntoAccount,
   transferBetweenAccounts,
   getAccountStatement,
@@ -36,12 +37,18 @@ function App() {
 
   const [depositModalOpen, setDepositModalOpen] = useState(false)
   const [transferModalOpen, setTransferModalOpen] = useState(false)
+  const [createAccountModalOpen, setCreateAccountModalOpen] = useState(false)
 
   const [selectedAccount, setSelectedAccount] = useState(null)
 
   const [depositValue, setDepositValue] = useState('')
   const [transferValue, setTransferValue] = useState('')
   const [transferTarget, setTransferTarget] = useState('')
+
+  const [newAccountName, setNewAccountName] = useState('')
+  const [newAccountBalance, setNewAccountBalance] = useState('')
+
+  const isAdmin = String(currentUser?.role || '').toLowerCase() === 'admin'
 
   const totalBalance = accounts.reduce(
     (total, acc) => total + Number(acc.balance || 0),
@@ -127,12 +134,7 @@ function App() {
   const getApiPayload = (response) => {
     const root = response?.data || {}
 
-    return (
-      root?.data ||
-      root?.body?.data ||
-      root?.body ||
-      root
-    )
+    return root?.data || root?.body?.data || root?.body || root
   }
 
   const getApiErrorMessage = (error, fallbackMessage) => {
@@ -182,11 +184,7 @@ function App() {
 
       const data = await getAccounts()
       const payload = getApiPayload({ data })
-      const accountList =
-        payload?.accounts ||
-        payload?.data ||
-        payload ||
-        []
+      const accountList = payload?.accounts || payload?.data || payload || []
 
       setAccounts(Array.isArray(accountList) ? accountList : [])
     } catch (error) {
@@ -194,6 +192,32 @@ function App() {
       alert(getApiErrorMessage(error, 'Erro ao buscar contas'))
     } finally {
       setLoadingAccounts(false)
+    }
+  }
+
+  const handleOpenCreateAccountModal = () => {
+    setNewAccountName('')
+    setNewAccountBalance('')
+    setCreateAccountModalOpen(true)
+  }
+
+  const handleCreateAccount = async () => {
+    if (!newAccountName || newAccountBalance === '') {
+      alert('Preencha o nome da conta e o saldo inicial.')
+      return
+    }
+
+    try {
+      await createNewAccount(newAccountName, newAccountBalance)
+
+      alert('Conta criada com sucesso!')
+      setCreateAccountModalOpen(false)
+      setNewAccountName('')
+      setNewAccountBalance('')
+      await fetchAccounts()
+    } catch (error) {
+      console.error('Erro ao criar conta:', error)
+      alert(getApiErrorMessage(error, 'Erro ao criar conta'))
     }
   }
 
@@ -344,9 +368,12 @@ function App() {
     setStatementData(null)
     setDepositModalOpen(false)
     setTransferModalOpen(false)
+    setCreateAccountModalOpen(false)
     setDepositValue('')
     setTransferValue('')
     setTransferTarget('')
+    setNewAccountName('')
+    setNewAccountBalance('')
     setSelectedAccount(null)
   }
 
@@ -368,6 +395,12 @@ function App() {
     setSelectedAccount(null)
   }
 
+  const closeCreateAccountModal = () => {
+    setCreateAccountModalOpen(false)
+    setNewAccountName('')
+    setNewAccountBalance('')
+  }
+
   if (authToken) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-white to-violet-200">
@@ -377,9 +410,7 @@ function App() {
           <div className="rounded-3xl bg-purple-600 text-white p-8 shadow-2xl mb-8">
             <p className="text-sm opacity-90">Bem-vindo ao</p>
 
-            <h2 className="text-4xl font-bold mt-2">
-              Mini Bank Dashboard
-            </h2>
+            <h2 className="text-4xl font-bold mt-2">Mini Bank Dashboard</h2>
 
             <p className="mt-3 text-purple-100">
               Visualize suas contas e acompanhe seus saldos.
@@ -407,11 +438,22 @@ function App() {
             </div>
           </div>
 
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">Suas contas</h3>
-            <p className="text-gray-500 mt-1">
-              Contas cadastradas no sistema bancário simulado
-            </p>
+          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900">Suas contas</h3>
+              <p className="text-gray-500 mt-1">
+                Contas cadastradas no sistema bancário simulado
+              </p>
+            </div>
+
+            {isAdmin && (
+              <button
+                onClick={handleOpenCreateAccountModal}
+                className="rounded-2xl bg-purple-600 text-white px-5 py-3 font-semibold hover:bg-purple-700 transition shadow-lg"
+              >
+                + Criar nova conta
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -459,6 +501,52 @@ function App() {
             </div>
           )}
         </div>
+
+        {createAccountModalOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border border-purple-100">
+              <h2 className="text-2xl font-bold mb-2 text-gray-900">
+                Criar nova conta
+              </h2>
+
+              <p className="text-sm text-gray-500 mb-6">
+                Disponível apenas para administrador
+              </p>
+
+              <input
+                type="text"
+                placeholder="Nome da conta"
+                value={newAccountName}
+                onChange={(e) => setNewAccountName(e.target.value)}
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 mb-3 outline-none focus:ring-2 focus:ring-purple-400"
+              />
+
+              <input
+                type="number"
+                placeholder="Saldo inicial"
+                value={newAccountBalance}
+                onChange={(e) => setNewAccountBalance(e.target.value)}
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-purple-400"
+              />
+
+              <div className="flex gap-3">
+                <button
+                  onClick={closeCreateAccountModal}
+                  className="flex-1 border border-gray-200 rounded-2xl py-3 font-semibold hover:bg-gray-50 transition"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={handleCreateAccount}
+                  className="flex-1 bg-purple-600 text-white rounded-2xl py-3 font-semibold hover:bg-purple-700 transition"
+                >
+                  Criar conta
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {statementOpen && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -666,9 +754,7 @@ function App() {
             $
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mt-6">
-            Mini Bank
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 mt-6">Mini Bank</h1>
 
           <p className="text-gray-500 mt-2">
             Entre para acessar seu banco digital simulado

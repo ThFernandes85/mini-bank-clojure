@@ -5,26 +5,32 @@ export const getAccounts = async () => {
   return response.data
 }
 
-export const depositIntoAccount = async (accountId, amount) => {
+export const createNewAccount = async (name, balance) => {
+  const response = await api.post('/accounts', {
+    name,
+    balance: Number(balance),
+  })
+  return response.data
+}
+
+export const depositIntoAccount = async (id, amount) => {
   const response = await api.post('/deposit', {
-    id: Number(accountId),
+    id: Number(id),
     amount: Number(amount),
   })
-
   return response.data
 }
 
-export const transferBetweenAccounts = async (fromAccountId, toAccountId, amount) => {
+export const transferBetweenAccounts = async (fromId, toId, amount) => {
   const response = await api.post('/transfer', {
-    'from-id': Number(fromAccountId),
-    'to-id': Number(toAccountId),
+    'from-id': Number(fromId),
+    'to-id': Number(toId),
     amount: Number(amount),
   })
-
   return response.data
 }
 
-export const getAccountStatement = async (accountId) => {
-  const response = await api.get(`/accounts/${accountId}/statement`)
+export const getAccountStatement = async (id) => {
+  const response = await api.get(`/accounts/${id}/statement`)
   return response.data
 }
