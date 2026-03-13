@@ -16,6 +16,17 @@ function App() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [loginSuccess, setLoginSuccess] = useState(false)
+
+  const [authToken, setAuthToken] = useState(localStorage.getItem('token') || '')
+  const [currentUser, setCurrentUser] = useState(() => {
+    const storedUser = localStorage.getItem('user')
+    try {
+      return storedUser ? JSON.parse(storedUser) : null
+    } catch {
+      return null
+    }
+  })
+
   const [accounts, setAccounts] = useState([])
   const [loadingAccounts, setLoadingAccounts] = useState(false)
 
@@ -31,8 +42,6 @@ function App() {
   const [depositValue, setDepositValue] = useState('')
   const [transferValue, setTransferValue] = useState('')
   const [transferTarget, setTransferTarget] = useState('')
-
-  const token = localStorage.getItem('token')
 
   const totalBalance = accounts.reduce(
     (total, acc) => total + Number(acc.balance || 0),
@@ -92,6 +101,22 @@ function App() {
       }
     }
 
+    if (normalizedType.includes('create-account')) {
+      return {
+        badge: 'bg-blue-100 text-blue-700',
+        value: 'text-blue-700',
+        label: 'Criação de conta',
+      }
+    }
+
+    if (normalizedType.includes('delete-account')) {
+      return {
+        badge: 'bg-orange-100 text-orange-700',
+        value: 'text-orange-700',
+        label: 'Remoção de conta',
+      }
+    }
+
     return {
       badge: 'bg-gray-100 text-gray-700',
       value: 'text-gray-800',
@@ -99,21 +124,74 @@ function App() {
     }
   }
 
+  const getApiPayload = (response) => {
+    const root = response?.data || {}
+
+    return (
+      root?.data ||
+      root?.body?.data ||
+      root?.body ||
+      root
+    )
+  }
+
+  const getApiErrorMessage = (error, fallbackMessage) => {
+    return (
+      error?.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.response?.data?.body?.error ||
+      error?.response?.data?.body?.message ||
+      error?.message ||
+      fallbackMessage
+    )
+  }
+
+  const extractTokenFromResponse = (response) => {
+    const root = response?.data || {}
+    const payload = getApiPayload(response)
+
+    return (
+      payload?.token ||
+      payload?.data?.token ||
+      root?.token ||
+      root?.data?.token ||
+      root?.body?.token ||
+      root?.body?.data?.token ||
+      null
+    )
+  }
+
+  const extractUserFromResponse = (response) => {
+    const root = response?.data || {}
+    const payload = getApiPayload(response)
+
+    return (
+      payload?.user ||
+      payload?.data?.user ||
+      root?.user ||
+      root?.data?.user ||
+      root?.body?.user ||
+      root?.body?.data?.user ||
+      null
+    )
+  }
+
   const fetchAccounts = async () => {
     try {
       setLoadingAccounts(true)
 
       const data = await getAccounts()
-      const accountList = data?.data || []
+      const payload = getApiPayload({ data })
+      const accountList =
+        payload?.accounts ||
+        payload?.data ||
+        payload ||
+        []
 
-      setAccounts(accountList)
+      setAccounts(Array.isArray(accountList) ? accountList : [])
     } catch (error) {
       console.error('Erro ao buscar contas:', error)
-      alert(
-        error?.response?.data?.error ||
-          error?.response?.data?.body?.error ||
-          'Erro ao buscar contas'
-      )
+      alert(getApiErrorMessage(error, 'Erro ao buscar contas'))
     } finally {
       setLoadingAccounts(false)
     }
@@ -136,14 +214,10 @@ function App() {
       setDepositValue('')
       setSelectedAccount(null)
 
-      fetchAccounts()
+      await fetchAccounts()
     } catch (error) {
       console.error('Erro ao realizar depósito:', error)
-      alert(
-        error?.response?.data?.error ||
-          error?.response?.data?.body?.error ||
-          'Erro ao realizar depósito'
-      )
+      alert(getApiErrorMessage(error, 'Erro ao realizar depósito'))
     }
   }
 
@@ -170,14 +244,10 @@ function App() {
       setTransferValue('')
       setSelectedAccount(null)
 
-      fetchAccounts()
+      await fetchAccounts()
     } catch (error) {
       console.error('Erro ao realizar transferência:', error)
-      alert(
-        error?.response?.data?.error ||
-          error?.response?.data?.body?.error ||
-          'Erro ao realizar transferência'
-      )
+      alert(getApiErrorMessage(error, 'Erro ao realizar transferência'))
     }
   }
 
@@ -187,16 +257,13 @@ function App() {
       setStatementLoading(true)
 
       const data = await getAccountStatement(accountId)
-      const statement = data?.data || null
+      const payload = getApiPayload({ data })
+      const statement = payload?.statement || payload?.data || payload || null
 
       setStatementData(statement)
     } catch (error) {
       console.error('Erro ao buscar extrato:', error)
-      alert(
-        error?.response?.data?.error ||
-          error?.response?.data?.body?.error ||
-          'Erro ao buscar extrato'
-      )
+      alert(getApiErrorMessage(error, 'Erro ao buscar extrato'))
       setStatementOpen(false)
       setStatementData(null)
     } finally {
@@ -205,10 +272,10 @@ function App() {
   }
 
   useEffect(() => {
-    if (token) {
+    if (authToken) {
       fetchAccounts()
     }
-  }, [token])
+  }, [authToken])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -228,24 +295,35 @@ function App() {
         password,
       })
 
-      const receivedToken =
-        response?.data?.data?.token || response?.data?.token
+      const receivedToken = extractTokenFromResponse(response)
+      const receivedUser = extractUserFromResponse(response)
 
-      if (receivedToken) {
-        localStorage.setItem('token', receivedToken)
-        setLoginSuccess(true)
-        setMessage('Login realizado com sucesso!')
-        await fetchAccounts()
-      } else {
+      if (!receivedToken) {
+        console.log('Resposta completa do login:', response?.data)
         setMessage('Login realizado, mas token não foi encontrado.')
+        return
       }
-    } catch (error) {
-      const apiError =
-        error?.response?.data?.error ||
-        error?.response?.data?.body?.error ||
-        'Erro ao fazer login.'
 
-      setMessage(apiError)
+      localStorage.setItem('token', receivedToken)
+      setAuthToken(receivedToken)
+
+      if (receivedUser) {
+        localStorage.setItem('user', JSON.stringify(receivedUser))
+        setCurrentUser(receivedUser)
+      } else {
+        localStorage.removeItem('user')
+        setCurrentUser(null)
+      }
+
+      setLoginSuccess(true)
+      setMessage('Login realizado com sucesso!')
+      setEmail('')
+      setPassword('')
+
+      await fetchAccounts()
+    } catch (error) {
+      console.error('Erro ao fazer login:', error)
+      setMessage(getApiErrorMessage(error, 'Erro ao fazer login.'))
     } finally {
       setLoading(false)
     }
@@ -253,9 +331,15 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
+
+    setAuthToken('')
+    setCurrentUser(null)
     setAccounts([])
     setLoginSuccess(false)
     setMessage('')
+    setEmail('')
+    setPassword('')
     setStatementOpen(false)
     setStatementData(null)
     setDepositModalOpen(false)
@@ -264,7 +348,6 @@ function App() {
     setTransferValue('')
     setTransferTarget('')
     setSelectedAccount(null)
-    window.location.reload()
   }
 
   const closeStatement = () => {
@@ -285,7 +368,7 @@ function App() {
     setSelectedAccount(null)
   }
 
-  if (token) {
+  if (authToken) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-100 via-white to-violet-200">
         <Navbar onLogout={handleLogout} />
@@ -301,6 +384,17 @@ function App() {
             <p className="mt-3 text-purple-100">
               Visualize suas contas e acompanhe seus saldos.
             </p>
+
+            {currentUser && (
+              <div className="mt-4 text-sm text-purple-100">
+                <p>
+                  Usuário: <span className="font-semibold">{currentUser.name}</span>
+                </p>
+                <p>
+                  Perfil: <span className="font-semibold">{currentUser.role}</span>
+                </p>
+              </div>
+            )}
 
             <div className="mt-6 border-t border-purple-400 pt-6">
               <p className="text-sm text-purple-200">
@@ -395,10 +489,10 @@ function App() {
                     <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4 mb-6">
                       <p className="text-sm text-gray-500">Saldo atual</p>
                       <p className="text-3xl font-bold text-purple-700 mt-1">
-                        {formatCurrency(statementData.account.balance)}
+                        {formatCurrency(statementData.account?.balance)}
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        ID da conta: {statementData.account.id}
+                        ID da conta: {statementData.account?.id}
                       </p>
                     </div>
 
@@ -571,9 +665,11 @@ function App() {
           <div className="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-2xl font-bold shadow-lg">
             $
           </div>
+
           <h1 className="text-3xl font-bold text-gray-900 mt-6">
             Mini Bank
           </h1>
+
           <p className="text-gray-500 mt-2">
             Entre para acessar seu banco digital simulado
           </p>
@@ -584,6 +680,7 @@ function App() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               E-mail
             </label>
+
             <input
               type="email"
               placeholder="thiago@email.com"
@@ -597,6 +694,7 @@ function App() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Senha
             </label>
+
             <input
               type="password"
               placeholder="••••••••"
