@@ -29,16 +29,17 @@
                 (re-pattern escaped-url))]))))
 
 (defroutes public-routes
-
   (GET "/" []
     (response {:message "Mini Bank API rodando com Clojure"}))
+
+  (GET "/public/bank-summary" []
+    (response (service/get-public-bank-summary)))
 
   (POST "/login" request
     (let [{:keys [email password]} (:body request)]
       (response (service/login-user email password)))))
 
 (defroutes protected-routes
-
   (GET "/dashboard" request
     (response
      (service/get-dashboard-data (get-in request [:identity :id]))))

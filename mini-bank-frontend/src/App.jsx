@@ -3,6 +3,7 @@ import {
   login,
   getDashboard,
   getBankSummary,
+  getPublicBankSummary,
   deposit,
   transfer,
   getExtract,
@@ -19,6 +20,7 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [message, setMessage] = useState("");
   const [bankSummary, setBankSummary] = useState(null);
+  const [publicSummary, setPublicSummary] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
@@ -60,6 +62,18 @@ export default function App() {
     setBankSummary(null);
     if (showMsg) {
       setMessage("Token inválido ou expirado");
+    }
+  }
+
+  async function loadPublicSummary() {
+    try {
+      const data = await getPublicBankSummary();
+
+      if (data?.success) {
+        setPublicSummary(data.data || null);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar resumo público:", error);
     }
   }
 
@@ -106,6 +120,10 @@ export default function App() {
   }
 
   useEffect(() => {
+    loadPublicSummary();
+  }, []);
+
+  useEffect(() => {
     if (token && token.trim() !== "") {
       loadDashboard(token);
     }
@@ -142,6 +160,12 @@ export default function App() {
     if (!ranking.length) return 0;
     return Math.max(...ranking.map((item) => Number(item.balance || 0)));
   }, [bankSummary]);
+
+  const publicRankingMaxBalance = useMemo(() => {
+    const ranking = publicSummary?.public_ranking || [];
+    if (!ranking.length) return 0;
+    return Math.max(...ranking.map((item) => Number(item.balance || 0)));
+  }, [publicSummary]);
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((acc) => {
@@ -295,6 +319,7 @@ export default function App() {
         setShowDepositModal(false);
         setDepositAmount("");
         await loadDashboard();
+        await loadPublicSummary();
       } else {
         setMessage(data?.message || "Erro ao depositar");
       }
@@ -331,6 +356,7 @@ export default function App() {
         });
         setShowTransferModal(false);
         await loadDashboard();
+        await loadPublicSummary();
       } else {
         setMessage(data?.message || "Erro ao transferir");
       }
@@ -361,6 +387,7 @@ export default function App() {
         });
         setShowCreateAccountModal(false);
         await loadDashboard();
+        await loadPublicSummary();
       } else {
         setMessage(data?.message || "Erro ao criar conta");
       }
@@ -383,6 +410,7 @@ export default function App() {
       if (data?.success) {
         setMessage(data?.message || "Conta encerrada com sucesso");
         await loadDashboard();
+        await loadPublicSummary();
       } else {
         setMessage(data?.message || "Erro ao encerrar conta");
       }
@@ -412,6 +440,7 @@ export default function App() {
       if (data?.success) {
         setMessage(data?.message || "Cliente excluído com sucesso");
         await loadDashboard();
+        await loadPublicSummary();
       } else {
         setMessage(data?.message || "Erro ao excluir cliente");
       }
@@ -435,54 +464,334 @@ export default function App() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-[#f5f1f8] flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white rounded-[28px] shadow-xl border border-[#ede3f7] p-8">
-          <h1 className="text-4xl font-extrabold text-[#820ad1] mb-2">
-            Mini Bank
-          </h1>
-          <p className="text-[#6b5c7a] mb-8">Banco digital simulado</p>
-
-          <form onSubmit={handleLogin} className="space-y-4">
+      <div className="min-h-screen bg-[#f5f1f8] text-[#1f1534]">
+        <header className="bg-[#f7f5f8] border-b border-[#e9ddf7]">
+          <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between gap-4">
             <div>
-              <label className="block text-sm text-[#5f5670] mb-2">Email</label>
-              <input
-                type="email"
-                value={loginForm.email}
-                onChange={(e) =>
-                  setLoginForm({ ...loginForm, email: e.target.value })
-                }
-                placeholder="Digite seu email"
-                className="w-full rounded-2xl border border-[#e6d8f5] bg-[#faf7fd] px-4 py-3 outline-none focus:border-[#820ad1]"
-              />
+              <h1 className="text-4xl font-extrabold text-[#820ad1] leading-none">
+                Mini Bank
+              </h1>
+              <p className="text-[#8a33dd] mt-2 font-semibold">
+                Simulador de Banco Criado por Thiago Fernandes
+              </p>
+              <p className="text-[#6d617d] mt-1">Projeto Full Stack em produção</p>
             </div>
 
-            <div>
-              <label className="block text-sm text-[#5f5670] mb-2">Senha</label>
-              <input
-                type="password"
-                value={loginForm.password}
-                onChange={(e) =>
-                  setLoginForm({ ...loginForm, password: e.target.value })
-                }
-                placeholder="Digite sua senha"
-                className="w-full rounded-2xl border border-[#e6d8f5] bg-[#faf7fd] px-4 py-3 outline-none focus:border-[#820ad1]"
-              />
+            <div className="hidden md:flex items-center gap-3">
+              <span className="rounded-full bg-[#efe7fb] px-4 py-2 text-sm font-bold text-[#7b2dd1]">
+                React + Vite
+              </span>
+              <span className="rounded-full bg-[#efe7fb] px-4 py-2 text-sm font-bold text-[#7b2dd1]">
+                Clojure API
+              </span>
+              <span className="rounded-full bg-[#efe7fb] px-4 py-2 text-sm font-bold text-[#7b2dd1]">
+                JWT + SQLite
+              </span>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto px-6 py-8">
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-stretch mb-10">
+            <div className="rounded-[32px] bg-gradient-to-r from-[#8a2be2] to-[#a43cf0] text-white px-8 py-10 shadow-xl">
+              <p className="text-base opacity-95 mb-3">Bem-vindo ao</p>
+              <h2 className="text-5xl font-extrabold mb-4">Mini Bank</h2>
+              <p className="text-xl opacity-95 mb-6 leading-relaxed">
+                Um sistema bancário full stack com autenticação, dashboard,
+                transferências, extrato, administração, ranking e analytics.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+                  <p className="text-sm opacity-90">Tipo de projeto</p>
+                  <p className="text-2xl font-extrabold mt-1">Portfólio real</p>
+                </div>
+
+                <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+                  <p className="text-sm opacity-90">Ambiente</p>
+                  <p className="text-2xl font-extrabold mt-1">Online na nuvem</p>
+                </div>
+
+                <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+                  <p className="text-sm opacity-90">Autenticação</p>
+                  <p className="text-2xl font-extrabold mt-1">JWT</p>
+                </div>
+
+                <div className="rounded-2xl bg-white/10 border border-white/20 p-4">
+                  <p className="text-sm opacity-90">Frontend</p>
+                  <p className="text-2xl font-extrabold mt-1">React + Tailwind</p>
+                </div>
+              </div>
             </div>
 
-            <button
-              type="submit"
-              className="w-full rounded-2xl bg-[#820ad1] py-3 font-bold text-white hover:bg-[#6f08b3] transition"
-            >
-              Entrar
-            </button>
-          </form>
+            <div className="w-full bg-white rounded-[32px] shadow-xl border border-[#ede3f7] p-8">
+              <h3 className="text-3xl font-extrabold text-[#17102b] mb-2">
+                Entrar no sistema
+              </h3>
+              <p className="text-[#6b5c7a] mb-8">
+                Faça login para acessar o painel administrativo e as operações do banco.
+              </p>
 
-          {message && (
-            <div className="mt-6 rounded-2xl border border-[#eadcf8] bg-[#f7f1fc] p-4 text-sm text-[#4d3f61]">
-              {message}
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-sm text-[#5f5670] mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={loginForm.email}
+                    onChange={(e) =>
+                      setLoginForm({ ...loginForm, email: e.target.value })
+                    }
+                    placeholder="Digite seu email"
+                    className="w-full rounded-2xl border border-[#e6d8f5] bg-[#faf7fd] px-4 py-3 outline-none focus:border-[#820ad1]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-[#5f5670] mb-2">Senha</label>
+                  <input
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(e) =>
+                      setLoginForm({ ...loginForm, password: e.target.value })
+                    }
+                    placeholder="Digite sua senha"
+                    className="w-full rounded-2xl border border-[#e6d8f5] bg-[#faf7fd] px-4 py-3 outline-none focus:border-[#820ad1]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full rounded-2xl bg-[#820ad1] py-3 font-bold text-white hover:bg-[#6f08b3] transition"
+                >
+                  Entrar
+                </button>
+              </form>
+
+              {message && (
+                <div className="mt-6 rounded-2xl border border-[#eadcf8] bg-[#f7f1fc] p-4 text-sm text-[#4d3f61]">
+                  {message}
+                </div>
+              )}
             </div>
+          </section>
+
+          {publicSummary && (
+            <>
+              <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+                <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                  <p className="text-[#6d617d] mb-2">Clientes cadastrados</p>
+                  <h4 className="text-3xl font-extrabold text-[#7b2dd1]">
+                    {publicSummary.total_clients}
+                  </h4>
+                  <p className="text-sm text-[#8a7e9a] mt-2">
+                    Total real de clientes vinculados às contas.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                  <p className="text-[#6d617d] mb-2">Contas ativas</p>
+                  <h4 className="text-3xl font-extrabold text-[#7b2dd1]">
+                    {publicSummary.active_accounts}
+                  </h4>
+                  <p className="text-sm text-[#8a7e9a] mt-2">
+                    Contas disponíveis atualmente no sistema.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                  <p className="text-[#6d617d] mb-2">Saldo total do banco</p>
+                  <h4 className="text-3xl font-extrabold text-[#7b2dd1]">
+                    R$ {formatMoney(publicSummary.total_balance)}
+                  </h4>
+                  <p className="text-sm text-[#8a7e9a] mt-2">
+                    Soma dos saldos disponíveis nas contas.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                  <p className="text-[#6d617d] mb-2">Total movimentado</p>
+                  <h4 className="text-3xl font-extrabold text-[#7b2dd1]">
+                    R$ {formatMoney(publicSummary.total_moved)}
+                  </h4>
+                  <p className="text-sm text-[#8a7e9a] mt-2">
+                    Volume total de movimentações registradas.
+                  </p>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
+                <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                  <h3 className="text-2xl font-extrabold text-[#17102b] mb-5">
+                    Recursos disponíveis
+                  </h3>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                      <p className="font-bold text-[#1d1431] text-lg">Autenticação segura</p>
+                      <p className="text-[#6d617d] mt-1">
+                        Controle de acesso com JWT e diferenciação de permissões administrativas.
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                      <p className="font-bold text-[#1d1431] text-lg">Operações bancárias</p>
+                      <p className="text-[#6d617d] mt-1">
+                        Depósito, transferência, extrato, encerramento de conta e gestão de clientes.
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                      <p className="font-bold text-[#1d1431] text-lg">Dashboard executivo</p>
+                      <p className="text-[#6d617d] mt-1">
+                        Resumo geral, métricas do banco, ranking por saldo e filtros avançados.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                  <h3 className="text-2xl font-extrabold text-[#17102b] mb-5">
+                    Ranking público por saldo
+                  </h3>
+
+                  <div className="space-y-4">
+                    {(publicSummary.public_ranking || []).length === 0 ? (
+                      <p className="text-[#6d617d]">Nenhum ranking público disponível.</p>
+                    ) : (
+                      publicSummary.public_ranking.map((item) => {
+                        const width =
+                          publicRankingMaxBalance > 0
+                            ? Math.max(
+                                8,
+                                Math.round(
+                                  (Number(item.balance || 0) / publicRankingMaxBalance) * 100
+                                )
+                              )
+                            : 0;
+
+                        return (
+                          <div key={item.position}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="font-bold text-[#1d1431] text-lg">
+                                  #{item.position} - {item.label}
+                                </p>
+                                <p className="text-[#6d617d] text-sm">
+                                  Status: {getStatusLabel(item.status)}
+                                </p>
+                              </div>
+
+                              <div className="text-right">
+                                <p className="font-extrabold text-[#7b2dd1] text-xl">
+                                  R$ {formatMoney(item.balance)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="w-full h-4 bg-[#f1e8fb] rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-[#8a2be2] rounded-full"
+                                style={{ width: `${width}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </section>
+            </>
           )}
-        </div>
+
+          {!publicSummary && (
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+              <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                <p className="text-[#6d617d] mb-2">Módulos do sistema</p>
+                <h4 className="text-3xl font-extrabold text-[#7b2dd1]">7+</h4>
+                <p className="text-sm text-[#8a7e9a] mt-2">
+                  Login, dashboard, contas, depósitos, transferências, extrato e admin.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                <p className="text-[#6d617d] mb-2">Arquitetura</p>
+                <h4 className="text-3xl font-extrabold text-[#7b2dd1]">Full Stack</h4>
+                <p className="text-sm text-[#8a7e9a] mt-2">
+                  Frontend moderno integrado a API REST com autenticação JWT.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                <p className="text-[#6d617d] mb-2">Deploy</p>
+                <h4 className="text-3xl font-extrabold text-[#7b2dd1]">Online</h4>
+                <p className="text-sm text-[#8a7e9a] mt-2">
+                  Frontend publicado na Vercel e backend publicado no Render.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+                <p className="text-[#6d617d] mb-2">Objetivo</p>
+                <h4 className="text-3xl font-extrabold text-[#7b2dd1]">Portfólio</h4>
+                <p className="text-sm text-[#8a7e9a] mt-2">
+                  Projeto criado para demonstrar habilidades reais de engenharia de software.
+                </p>
+              </div>
+            </section>
+          )}
+
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
+            <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+              <h3 className="text-2xl font-extrabold text-[#17102b] mb-5">
+                Tecnologias utilizadas
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                  <p className="text-[#6d617d] text-sm">Frontend</p>
+                  <p className="font-extrabold text-[#7b2dd1] text-xl mt-1">React + Vite</p>
+                </div>
+
+                <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                  <p className="text-[#6d617d] text-sm">Estilo</p>
+                  <p className="font-extrabold text-[#7b2dd1] text-xl mt-1">Tailwind CSS</p>
+                </div>
+
+                <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                  <p className="text-[#6d617d] text-sm">Backend</p>
+                  <p className="font-extrabold text-[#7b2dd1] text-xl mt-1">Clojure + Ring</p>
+                </div>
+
+                <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                  <p className="text-[#6d617d] text-sm">Banco de dados</p>
+                  <p className="font-extrabold text-[#7b2dd1] text-xl mt-1">SQLite</p>
+                </div>
+
+                <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                  <p className="text-[#6d617d] text-sm">Autenticação</p>
+                  <p className="font-extrabold text-[#7b2dd1] text-xl mt-1">JWT</p>
+                </div>
+
+                <div className="rounded-2xl bg-[#faf7fd] border border-[#eadcf8] p-4">
+                  <p className="text-[#6d617d] text-sm">Deploy</p>
+                  <p className="font-extrabold text-[#7b2dd1] text-xl mt-1">Render + Vercel</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[28px] border border-[#eadcf8] shadow-lg p-6">
+              <h3 className="text-2xl font-extrabold text-[#17102b] mb-4">
+                Sobre este projeto
+              </h3>
+              <p className="text-[#6d617d] text-lg leading-relaxed">
+                O Mini Bank foi desenvolvido como um projeto full stack para simular um ambiente
+                bancário real, com foco em autenticação, gestão de contas, operações financeiras,
+                painel administrativo e publicação em nuvem. A proposta é demonstrar domínio de
+                frontend, backend, integração de APIs, banco de dados, segurança e deploy.
+              </p>
+            </div>
+          </section>
+        </main>
       </div>
     );
   }

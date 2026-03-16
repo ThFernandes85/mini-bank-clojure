@@ -5,6 +5,17 @@ async function parseResponse(response) {
   return data;
 }
 
+export async function getPublicBankSummary() {
+  const response = await fetch(`${API_URL}/public/bank-summary`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  return await parseResponse(response);
+}
+
 export async function login(email, password) {
   const response = await fetch(`${API_URL}/login`, {
     method: "POST",

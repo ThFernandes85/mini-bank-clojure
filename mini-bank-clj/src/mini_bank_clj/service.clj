@@ -391,7 +391,7 @@
     (seq (normalize-name (:name acc))) (str "name:" (normalize-name (:name acc)))
     :else (str "account-id:" (:id acc))))
 
-(defn get-bank-summary []
+(defn build-bank-summary-data []
   (let [accounts (jdbc/query db-spec ["SELECT * FROM accounts ORDER BY balance DESC"])
         transactions (jdbc/query db-spec ["SELECT * FROM transactions ORDER BY id DESC"])
         active-accounts (filter #(= "ativa" (:status %)) accounts)
@@ -414,19 +414,40 @@
                               :status (:status acc)})
                            accounts))
         total-clients (count (distinct (map account-client-key accounts)))]
+    {:total_clients total-clients
+     :total_accounts (count accounts)
+     :active_accounts (count active-accounts)
+     :closed_accounts (count closed-accounts)
+     :total_balance total-balance
+     :total_moved total-moved
+     :biggest_balance (when biggest-balance
+                        {:name (:name biggest-balance)
+                         :balance (:balance biggest-balance)
+                         :account_number (:account_number biggest-balance)})
+     :biggest_transfer (when biggest-transfer
+                         {:name (:name biggest-transfer)
+                          :amount (:amount biggest-transfer)
+                          :type (:type biggest-transfer)})
+     :ranking ranking}))
+
+(defn get-bank-summary []
+  {:success true
+   :data (build-bank-summary-data)})
+
+(defn get-public-bank-summary []
+  (let [summary (build-bank-summary-data)
+        public-ranking (map-indexed
+                        (fn [index item]
+                          {:position (inc index)
+                           :label (str "Conta " (inc index))
+                           :balance (:balance item)
+                           :status (:status item)})
+                        (:ranking summary))]
     {:success true
-     :data {:total_clients total-clients
-            :total_accounts (count accounts)
-            :active_accounts (count active-accounts)
-            :closed_accounts (count closed-accounts)
-            :total_balance total-balance
-            :total_moved total-moved
-            :biggest_balance (when biggest-balance
-                               {:name (:name biggest-balance)
-                                :balance (:balance biggest-balance)
-                                :account_number (:account_number biggest-balance)})
-            :biggest_transfer (when biggest-transfer
-                                {:name (:name biggest-transfer)
-                                 :amount (:amount biggest-transfer)
-                                 :type (:type biggest-transfer)})
-            :ranking ranking}}))
+     :data {:total_clients (:total_clients summary)
+            :total_accounts (:total_accounts summary)
+            :active_accounts (:active_accounts summary)
+            :closed_accounts (:closed_accounts summary)
+            :total_balance (:total_balance summary)
+            :total_moved (:total_moved summary)
+            :public_ranking public-ranking}}))
