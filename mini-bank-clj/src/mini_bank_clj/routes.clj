@@ -1,5 +1,5 @@
 (ns mini-bank-clj.routes
-  (:require [compojure.core :refer [defroutes GET POST DELETE PUT]]
+  (:require [compojure.core :refer [defroutes GET POST DELETE PUT OPTIONS]]
             [compojure.route :as route]
             [ring.util.response :refer [response status]]
             [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
@@ -29,6 +29,9 @@
                 (re-pattern escaped-url))]))))
 
 (defroutes public-routes
+  (OPTIONS "*" []
+    (response {:success true :message "Preflight OK"}))
+
   (GET "/" []
     (response {:message "Mini Bank API rodando com Clojure"}))
 
@@ -99,6 +102,6 @@
       (wrap-json-body {:keywords? true})
       wrap-json-response
       (wrap-cors
-       :access-control-allow-origin (allowed-origin-patterns)
+       :access-control-allow-origin [#".*"]
        :access-control-allow-methods [:get :post :put :delete :options]
        :access-control-allow-headers ["Content-Type" "Authorization"])))
